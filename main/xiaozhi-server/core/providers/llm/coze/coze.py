@@ -1,5 +1,6 @@
 from config.logger import setup_logging
 import json
+from typing import Any, Dict, Optional
 from core.providers.llm.base import LLMProviderBase
 
 # official coze sdk for Python [cozepy](https://github.com/coze-dev/coze-py)
@@ -22,10 +23,26 @@ class LLMProvider(LLMProviderBase):
         self.personal_access_token = config.get("personal_access_token")
         self.bot_id = str(config.get("bot_id"))
         self.user_id = str(config.get("user_id"))
+        self.parameters = self._parse_parameters(config.get("parameters"))
         self.session_conversation_map = {}  # 存储session_id和conversation_id的映射
         model_key_msg = check_model_key("CozeLLM", self.personal_access_token)
         if model_key_msg:
             logger.bind(tag=TAG).error(model_key_msg)
+
+    def _parse_parameters(self, params: Optional[Any]) -> Optional[Dict[str, Any]]:
+        """解析 parameters 配置，支持 dict 或 JSON 字符串"""
+        if params is None:
+            return None
+        if isinstance(params, dict):
+            return {k: v for k, v in params.items() if v is not None}
+        if isinstance(params, str):
+            try:
+                parsed = json.loads(params)
+                if isinstance(parsed, dict):
+                    return {k: v for k, v in parsed.items() if v is not None}
+            except json.JSONDecodeError:
+                logger.bind(tag=TAG).warning("Coze parameters JSON 解析失败")
+        return None
 
     def response(self, session_id, dialogue, **kwargs):
         coze_api_token = self.personal_access_token
@@ -42,14 +59,21 @@ class LLMProvider(LLMProviderBase):
             conversation_id = conversation.id
             self.session_conversation_map[session_id] = conversation_id  # 更新映射
 
-        for event in coze.chat.stream(
+        # 构建请求参数
+        stream_kwargs: Dict[str, Any] = dict(
             bot_id=self.bot_id,
             user_id=self.user_id,
             additional_messages=[
                 Message.build_user_question_text(last_msg["content"]),
             ],
             conversation_id=conversation_id,
-        ):
+        )
+        
+        # 如果配置了 parameters，添加到请求中
+        if self.parameters:
+            stream_kwargs["parameters"] = self.parameters
+
+        for event in coze.chat.stream(**stream_kwargs):
             if event.event == ChatEventType.CONVERSATION_MESSAGE_DELTA:
                 print(event.message.content, end="", flush=True)
                 yield event.message.content

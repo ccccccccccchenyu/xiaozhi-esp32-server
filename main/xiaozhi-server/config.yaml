@@ -561,6 +561,10 @@ LLM:
     bot_id: "你的bot_id"
     user_id: "你的user_id"
     personal_access_token: 你的coze个人令牌
+    # 可选：传递给Coze Bot的自定义参数(JSON格式)
+    # 这些参数会在调用Coze API时传递，可用于工作流变量等
+    # 示例：parameters: {"city": "上海", "user_name": "张三"}
+    # parameters:
   VolcesAiGatewayLLM:
     # 火山引擎 - 边缘大模型网关
     # 定义LLM API类型
