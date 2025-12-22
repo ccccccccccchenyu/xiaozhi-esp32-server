@@ -1,0 +1,8 @@
+# 本地测试用 Dockerfile
+FROM ghcr.io/xinnan-tech/xiaozhi-esp32-server:server-base
+
+# 从当前目录复制所有文件
+COPY . .
+
+# 启动应用
+CMD ["python", "app.py"]
